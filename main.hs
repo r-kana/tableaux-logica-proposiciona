@@ -1,3 +1,9 @@
+-- #TODO 
+-- 1. Criação da estrutura em arvore
+-- 2. Manipulação do nós
+-- 3. Processamento da entrada
+-- 4. Processamento dos operandos
+
 data Formula = Formula {
   txt :: String,
   valor :: Bool
