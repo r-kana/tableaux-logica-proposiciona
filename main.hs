@@ -140,7 +140,7 @@ cria_arvore no index
 
 -- Código baseado no projeto https://github.com/matheusromaneli/logicValidator/
 -- Arquivo: main.hs, Linhas: 109 a 120
--- Snipet
+-- SNIPPET
 concatFormula:: Formula -> String
 concatFormula form
   | _atomico form = bool_para_texto (valor form) ++ ":" ++ operando_esq form
@@ -163,9 +163,9 @@ imprimir_arvore no nivel
     imprimir_arvore (no_esq no) (nivel + 1) ++ 
     concatFormulas (formulas no) (nivel) ++ 
     imprimir_arvore (no_dir no) (nivel + 1)
--- Fim do Snipet
+-- FIM DO SNIPPET
 
-------------------------------------------------------
+---------------------------------------------------------
 ----------------------- VALIDACAO -----------------------
 
 _opostas :: Formula -> Formula -> Bool
@@ -189,26 +189,19 @@ valida_arvore no
   | valida_arvore (no_esq no) = True
   | valida_arvore (no_dir no) = True
   | otherwise = False
-
+  
+----------------------------------------------------
 ----------------------- MAIN -----------------------
 
 main :: IO()
 main = do
   putStrLn "Digite a fórmula:"
   entrada <- getLine
-  let formula_inicial = cria_formula entrada False
-  putStrLn $ operando_esq formula_inicial
-  putStrLn $ operando_dir formula_inicial
   let no_raiz = cria_arvore No{
-                  formulas = [formula_inicial], 
+                  formulas = [cria_formula entrada False], 
                   no_esq = no_vazio, 
                   no_dir = no_vazio,
                   _folha = True
                 } 0
   putStr $ imprimir_arvore no_raiz 0
-  if valida_arvore no_raiz 
-  then putStrLn "Válido" 
-  else putStrLn "Inválido"
-
-  -- (a|b)&(a|c)
-  
+  if valida_arvore no_raiz then putStrLn "Válido" else putStrLn "Inválido"
