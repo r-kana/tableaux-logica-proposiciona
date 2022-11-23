@@ -1,3 +1,6 @@
+-----------------------------------------------------
+----------------------- TIPOS -----------------------
+
 data Formula = Formula { texto :: String
                        , operando_esq :: String
                        , operando_dir :: String
@@ -11,6 +14,25 @@ data No = No { formulas :: [Formula]
              , _folha :: Bool
              }
 
+----------------------------------------------------------
+----------------------- UTILIDADES -----------------------
+
+_ramifica :: Char -> Bool -> Bool
+_ramifica op vlr = (op == '&' && not vlr) || ((op == '|' || op == '>') && vlr)
+
+_op_valido :: Char -> Bool
+_op_valido c = c == '&' || c == '|' || c == '>' || c == '~'
+
+_atomico :: Formula -> Bool
+_atomico form = operador form == '_'
+
+valores_de_regra :: Char -> Bool -> [Bool]
+valores_de_regra op vlr
+  | (op == '&' || op == '|') = [vlr, vlr]
+  | op == '>' = [vlr, not vlr]
+  | op == '~' = [not vlr]
+  | otherwise = [vlr]
+
 desenvolve :: Formula -> [Formula]
 desenvolve form = 
   let valores = valores_de_regra (operador form) (valor form)
@@ -20,17 +42,18 @@ desenvolve form =
       cria_formula (operando_dir form) (last valores) 
     ]
 
-_ramifica :: Char -> Bool -> Bool
-_ramifica op vlr = (op == '&' && vlr == False) || ((op == '|' || op == '>') && vlr)
+bool_para_texto :: Bool -> String
+bool_para_texto True = "V"
+bool_para_texto False = "F"
 
-valores_de_regra :: Char -> Bool -> [Bool]
-valores_de_regra op vlr
-  | (op == '&' || op == '|') = [vlr, vlr]
-  | op == '>' = [vlr, not vlr]
-  | op == '~' = [not vlr]
+-------------------------------------------------------
+----------------------- FORMULA -----------------------
 
-_op_valido :: Char -> Bool
-_op_valido c = c == '&' || c == '|' || c == '>' || c == '~'
+retirar_parenteses :: String -> String
+retirar_parenteses txt = 
+  if head txt  == '(' && last txt == ')'
+  then tail $ init txt
+  else txt
 
 index_op :: String -> Int -> Int -> Int
 index_op txt index nivel 
@@ -40,25 +63,23 @@ index_op txt index nivel
   | nivel == 0 && _op_valido (txt !! index) = index
   | otherwise = index_op txt (index + 1) nivel
 
-retirar_parenteses :: String -> String
-retirar_parenteses txt = 
-  if head txt == '(' && last txt == ')' 
-  then tail $ init txt
-  else txt
-
 recupera_op :: String -> Char
 recupera_op txt = 
   let index = index_op txt 0 0
   in if index == 0 then '_' else txt !! index
 
-op_dir :: String -> String 
-op_dir txt = retirar_parenteses $ drop ((index_op txt 0 0) + 1) txt
+op_esq :: String -> String
+op_esq txt = 
+  if recupera_op txt == '_'
+    then txt
+    else retirar_parenteses $ take (index_op txt 0 0) txt
 
-op_esq :: String -> String  
-op_esq txt = retirar_parenteses $ take (index_op txt 0 0) txt
+op_dir :: String -> String
+op_dir txt = 
+  if recupera_op txt == '_'
+    then ""
+    else retirar_parenteses $ drop ((index_op txt 0 0) + 1) txt
 
-_atomico :: Formula -> Bool
-_atomico form = operador form == '_'
 
 cria_formula :: String -> Bool -> Formula
 cria_formula txt vlr = 
@@ -70,14 +91,19 @@ cria_formula txt vlr =
     valor = vlr
   }
 
+------------------------------------------------------
+----------------------- ARVORE -----------------------
+no_vazio :: No
+no_vazio = No {formulas = [], no_esq = No{}, no_dir = No{}, _folha = False}
+
 ramifica :: No -> [Formula] -> No
 ramifica no forms =
   if _folha no
   then 
     No{
       formulas = formulas no,
-      no_esq = No{formulas = [head forms], no_esq = No{}, no_dir = No{}, _folha = True},
-      no_dir = No{formulas = [last forms], no_esq = No{}, no_dir = No{}, _folha = True},
+      no_esq = No{formulas = [head forms], no_esq = no_vazio, no_dir = no_vazio, _folha = True},
+      no_dir = No{formulas = [last forms], no_esq = no_vazio, no_dir = no_vazio, _folha = True},
       _folha = False
     }
   else
@@ -90,7 +116,17 @@ ramifica no forms =
 
 cria_arvore :: No -> Int -> No
 cria_arvore no index
-  | _ramifica (operador form) (valor form) = ramifica no (desenvolve form)
+  | length (formulas no) == 0 = no
+  | length (formulas no) == index = 
+    No{
+      formulas = formulas no,
+      no_esq = cria_arvore (no_esq no) 0,
+      no_dir = cria_arvore (no_dir no) 0,
+      _folha = _folha no
+    }
+  | _atomico form = cria_arvore no (index + 1)
+  | _ramifica (operador form) (valor form) = 
+    cria_arvore (ramifica no (desenvolve form)) (index + 1)
   | not $ _ramifica (operador form) (valor form) = 
     cria_arvore No{
                   formulas = (formulas no) ++ desenvolve form,
@@ -99,50 +135,80 @@ cria_arvore no index
                   _folha = _folha no
                 }
                 (index + 1)
-  | index == length (formulas no) = 
-    No{
-      formulas = formulas no,
-      no_esq = cria_arvore (no_esq no) 0,
-      no_dir = cria_arvore (no_dir no) 0,
-      _folha = _folha no
-    }
-  | _atomico form = cria_arvore no (index + 1)
   | otherwise = No{}
   where form = (formulas no) !! index
 
-atomicas :: No -> Int -> [Formula] -> [Formula]
-atomicas no index forms
-  | index == length (formulas no) = forms
-  | _atomico $ (formulas no) !! index = atomicas no (index + 1) (forms ++ [(formulas no) !! index])
-  | otherwise = atomicas no (index + 1) forms
+-- Código baseado no projeto https://github.com/matheusromaneli/logicValidator/
+-- Arquivo: main.hs, Linhas: 109 a 120
+-- Snipet
+concatFormula:: Formula -> String
+concatFormula form
+  | _atomico form = bool_para_texto (valor form) ++ ":" ++ operando_esq form
+  | otherwise = bool_para_texto (valor form) ++ ":" ++ 
+                "(" ++ operando_esq form ++ ")" ++ 
+                [operador form] ++ 
+                "(" ++ operando_dir form ++ ")"
+
+concatFormulas:: [Formula] -> Int -> String
+concatFormulas [] nivel = ""
+concatFormulas forms nivel = (take (nivel * 7) (repeat ' ')) ++ 
+                            concatFormula (head forms) ++ 
+                            "\n" ++ 
+                            concatFormulas(tail forms) nivel
+
+imprimir_arvore:: No -> Int -> String
+imprimir_arvore no nivel
+  | _folha no = concatFormulas (formulas no) (nivel)
+  | otherwise = 
+    imprimir_arvore (no_esq no) (nivel + 1) ++ 
+    concatFormulas (formulas no) (nivel) ++ 
+    imprimir_arvore (no_dir no) (nivel + 1)
+-- Fim do Snipet
+
+------------------------------------------------------
+----------------------- VALIDACAO -----------------------
 
 _opostas :: Formula -> Formula -> Bool
 _opostas form1 form2 = operando_esq form1 == operando_esq form2 && valor form1 /= valor form2
 
+atomicas :: No -> Int -> [Formula] -> [Formula]
+atomicas no index acumulador
+  | index == length (formulas no) = acumulador
+  | _atomico $ (formulas no) !! index = atomicas no (index + 1) (acumulador ++ [(formulas no) !! index])
+  | otherwise = atomicas no (index + 1) acumulador
+
 compara_forms :: [Formula] -> Int -> Int -> Bool
 compara_forms forms i j
+  | (i + 1) == length forms = False
   | _opostas (forms !! i) (forms !! j) = True
   | (j + 1) == length forms = compara_forms forms (i + 1) (i + 2)
-  | i == length forms = False
 
 valida_arvore :: No -> Bool
 valida_arvore no
   | _folha no = compara_forms (atomicas no 0 []) 0 1
   | valida_arvore (no_esq no) = True
   | valida_arvore (no_dir no) = True
+  | otherwise = False
 
+----------------------- MAIN -----------------------
 
 main :: IO()
 main = do
   putStrLn "Digite a fórmula:"
   entrada <- getLine
+  let formula_inicial = cria_formula entrada False
+  putStrLn $ operando_esq formula_inicial
+  putStrLn $ operando_dir formula_inicial
   let no_raiz = cria_arvore No{
-                  formulas = [cria_formula entrada False], 
-                  no_esq = No {}, 
-                  no_dir = No {},
+                  formulas = [formula_inicial], 
+                  no_esq = no_vazio, 
+                  no_dir = no_vazio,
                   _folha = True
                 } 0
+  putStr $ imprimir_arvore no_raiz 0
   if valida_arvore no_raiz 
   then putStrLn "Válido" 
   else putStrLn "Inválido"
+
+  -- (a|b)&(a|c)
   
