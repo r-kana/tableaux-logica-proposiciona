@@ -138,7 +138,34 @@ cria_arvore no index
   | otherwise = No{}
   where form = (formulas no) !! index
 
-------------------------------------------------------
+-- Código baseado no projeto https://github.com/matheusromaneli/logicValidator/
+-- Arquivo: main.hs, Linhas: 109 a 120
+-- SNIPPET
+concatFormula:: Formula -> String
+concatFormula form
+  | _atomico form = bool_para_texto (valor form) ++ ":" ++ operando_esq form
+  | otherwise = bool_para_texto (valor form) ++ ":" ++ 
+                "(" ++ operando_esq form ++ ")" ++ 
+                [operador form] ++ 
+                "(" ++ operando_dir form ++ ")"
+
+concatFormulas:: [Formula] -> Int -> String
+concatFormulas [] nivel = ""
+concatFormulas forms nivel = (take (nivel * 7) (repeat ' ')) ++ 
+                            concatFormula (head forms) ++ 
+                            "\n" ++ 
+                            concatFormulas(tail forms) nivel
+
+imprimir_arvore:: No -> Int -> String
+imprimir_arvore no nivel
+  | _folha no = concatFormulas (formulas no) (nivel)
+  | otherwise = 
+    imprimir_arvore (no_esq no) (nivel + 1) ++ 
+    concatFormulas (formulas no) (nivel) ++ 
+    imprimir_arvore (no_dir no) (nivel + 1)
+-- FIM DO SNIPPET
+
+---------------------------------------------------------
 ----------------------- VALIDACAO -----------------------
 
 _opostas :: Formula -> Formula -> Bool
@@ -162,7 +189,8 @@ valida_arvore no
   | valida_arvore (no_esq no) = True
   | valida_arvore (no_dir no) = True
   | otherwise = False
-
+  
+----------------------------------------------------
 ----------------------- MAIN -----------------------
 
 main :: IO()
@@ -175,6 +203,5 @@ main = do
                   no_dir = no_vazio,
                   _folha = True
                 } 0
-  if valida_arvore no_raiz 
-  then putStrLn "Válido" 
-  else putStrLn "Inválido"  
+  putStr $ imprimir_arvore no_raiz 0
+  if valida_arvore no_raiz then putStrLn "Válido" else putStrLn "Inválido"
